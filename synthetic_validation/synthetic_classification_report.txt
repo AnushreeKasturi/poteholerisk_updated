@@ -1,0 +1,18 @@
+SYNTHETIC FORMULA-CONSISTENCY CHECK -- NOT a real-world accuracy result.
+Generated from the paper's own Eq.1-7 with added label noise.
+Real, honestly-evaluated result on actual accident data: 73.1% (see models_final/).
+
+              precision    recall  f1-score   support
+
+        HIGH       0.96      0.99      0.98      3096
+         LOW       0.88      0.79      0.83       368
+      MEDIUM       0.79      0.70      0.75       536
+
+    accuracy                           0.94      4000
+   macro avg       0.88      0.83      0.85      4000
+weighted avg       0.93      0.94      0.93      4000
+
+Confusion matrix (rows=actual, cols=predicted), order=[LOW,MEDIUM,HIGH]:
+[[ 292   76    0]
+ [  40  376  120]
+ [   0   21 3075]]

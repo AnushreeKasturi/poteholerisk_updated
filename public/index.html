@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PotholeRisk — Bengaluru Dynamic Risk Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ---- full CSS from your original file ---- */
+  :root {
+    --bg:       #0a0c10;
+    --bg2:      #111318;
+    --bg3:      #181b22;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.14);
+    --text:     #e8eaf0;
+    --muted:    #7a7f8e;
+    --accent:   #f97316;
+    --accent2:  #3b82f6;
+    --green:    #22c55e;
+    --amber:    #eab308;
+    --red:      #ef4444;
+    --font-display: 'Syne', sans-serif;
+    --font-body:    'DM Sans', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(249,115,22,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(249,115,22,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; }
+
+  header {
+    padding: 32px 0 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text h1 { font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .logo-text p  { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .api-form { display: flex; gap: 8px; align-items: center; }
+  .api-input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    width: 230px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--muted); }
+
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn:hover   { opacity: 0.88; }
+  .btn:active  { transform: scale(0.97); }
+  .btn.secondary {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .btn.secondary:hover { background: var(--bg2); border-color: var(--accent); }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--muted);
+  }
+  .status-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status-pill.live .dot   { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .status-pill.live        { color: var(--green); border-color: rgba(34,197,94,0.3); }
+  .status-pill.error .dot  { background: var(--red); }
+  .status-pill.error       { color: var(--red); border-color: rgba(239,68,68,0.3); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  #weather-strip {
+    margin-top: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: none;
+    animation: fadeUp 0.4s ease;
+  }
+  #weather-strip.visible { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+
+  .w-city { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+  .w-meta { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+  .w-items { display: flex; gap: 20px; flex-wrap: wrap; margin-left: auto; }
+  .w-item { text-align: center; }
+  .w-item .val { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+  .w-item .lbl { font-size: 10px; color: var(--muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .w-rain  { color: var(--accent2); }
+  .w-temp  { color: var(--amber); }
+  .w-wind  { color: var(--green); }
+  .w-humid { color: #a78bfa; }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  @media (max-width: 860px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .panel-body { padding: 20px; }
+
+  .seg-table { width: 100%; border-collapse: collapse; }
+  .seg-table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+    padding: 0 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .seg-row {
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .seg-row:hover  { background: var(--bg3); }
+  .seg-row.active { background: rgba(249,115,22,0.06); border-color: rgba(249,115,22,0.2); }
+  .seg-row td { padding: 11px 8px; font-size: 13px; }
+  .seg-name { font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seg-potholes { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+  .risk-chip {
+    display: inline-flex; align-items: center;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .risk-LOW    { background: rgba(34,197,94,0.12);  color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .risk-MEDIUM { background: rgba(234,179,8,0.12);  color: var(--amber); border: 1px solid rgba(234,179,8,0.25); }
+  .risk-HIGH   { background: rgba(239,68,68,0.12);  color: var(--red);   border: 1px solid rgba(239,68,68,0.25);
+                 animation: shimmer 2s infinite; }
+
+  @keyframes shimmer {
+    0%,100% { box-shadow: 0 0 0px rgba(239,68,68,0); }
+    50%      { box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+  }
+
+  .add-seg-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-field.full { grid-column: 1/-1; }
+  .form-label { font-size: 10px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .form-input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+
+  .right-col { display: flex; flex-direction: column; gap: 20px; }
+
+  .risk-hero {
+    padding: 28px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .risk-hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 120%, var(--risk-color, rgba(249,115,22,0.08)) 0%, transparent 70%);
+    transition: background 0.6s;
+  }
+  .risk-segment-name { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .risk-level-big {
+    font-family: var(--font-display);
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    transition: color 0.4s;
+  }
+  .risk-score-big { font-family: var(--font-mono); font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+  .bayes-rows { display: flex; flex-direction: column; gap: 14px; }
+  .bayes-row  { display: flex; flex-direction: column; gap: 5px; }
+  .bayes-meta { display: flex; justify-content: space-between; align-items: center; }
+  .bayes-name { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .bayes-val  { font-size: 13px; font-weight: 500; font-family: var(--font-mono); }
+  .bar-bg { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .bar-fg { height: 100%; border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+
+  .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .sliders-grid { grid-template-columns: 1fr; } }
+
+  .slider-block { display: flex; flex-direction: column; gap: 7px; }
+  .slider-top { display: flex; justify-content: space-between; align-items: center; }
+  .slider-lbl { font-size: 11px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .slider-num { font-size: 14px; font-weight: 500; font-family: var(--font-display); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+
+  .tod-toggle { display: flex; gap: 6px; }
+  .tod-btn {
+    flex: 1;
+    padding: 7px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .tod-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .map-wrap {
+    height: 260px;
+    background: var(--bg3);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  #risk-map { width: 100%; height: 100%; }
+
+  .chart-wrap { position: relative; height: 160px; }
+  #history-chart { width: 100%; height: 100%; }
+
+  .log-wrap { max-height: 160px; overflow-y: auto; padding-right: 4px; }
+  .log-wrap::-webkit-scrollbar { width: 3px; }
+  .log-wrap::-webkit-scrollbar-track { background: transparent; }
+  .log-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .log-entry {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 10px;
+    animation: fadeUp 0.3s ease;
+  }
+  .log-time { color: var(--muted); white-space: nowrap; }
+  .log-msg  { color: var(--text); }
+  .log-high { color: var(--red); }
+  .log-med  { color: var(--amber); }
+  .log-low  { color: var(--green); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(8px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 20px;
+  }
+  @media (max-width: 640px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .stat-card .label { font-size: 10px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .stat-card .value { font-family: var(--font-display); font-size: 26px; font-weight: 800; }
+  .stat-card .sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .formula-strip {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+  }
+  .formula-strip .eq { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+  .formula-strip .desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 480px;
+    width: 90%;
+    animation: fadeUp 0.3s ease;
+  }
+  .modal h2 { font-family: var(--font-display); font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+  .modal p  { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+
+  .file-drop {
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .file-drop:hover, .file-drop.dragover { border-color: var(--accent2); background: rgba(59,130,246,0.04); }
+  .file-drop input[type=file] { position:absolute;inset:0;opacity:0;cursor:pointer; }
+  .file-drop .fd-icon { font-size: 24px; margin-bottom: 6px; }
+  .file-drop .fd-label { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .file-drop .fd-label strong { color: var(--accent2); }
+
+  .confusion-matrix {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    gap: 4px;
+    margin-top: 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .cm-header { color: var(--muted); padding: 6px 10px; text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cm-row-label { color: var(--muted); padding: 6px 8px; display: flex; align-items: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+  .cm-cell {
+    border-radius: 8px;
+    padding: 14px 10px;
+    text-align: center;
+    display: flex; flex-direction: column; gap: 3px; align-items: center; justify-content: center;
+    min-height: 60px;
+  }
+  .cm-cell .cm-val { font-size: 22px; font-weight: 700; font-family: var(--font-display); }
+  .cm-cell .cm-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .cm-tp { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); }
+  .cm-fp { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.18); }
+  .cm-fn { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.18); }
+  .cm-tn { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.18); }
+  .cm-tp .cm-val { color: var(--green); }
+  .cm-fp .cm-val { color: var(--red); }
+  .cm-fn .cm-val { color: var(--amber); }
+  .cm-tn .cm-val { color: var(--accent2); }
+
+  .metric-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .metric-pill {
+    flex: 1; min-width: 80px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 12px; text-align: center;
+    font-family: var(--font-mono);
+  }
+  .metric-pill .mp-val { font-size: 20px; font-weight: 700; font-family: var(--font-display); }
+  .metric-pill .mp-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 3px; }
+  .metric-pill.prec .mp-val { color: var(--green); }
+  .metric-pill.rec  .mp-val { color: var(--amber); }
+  .metric-pill.f1   .mp-val { color: var(--accent); }
+  .metric-pill.acc  .mp-val { color: var(--accent2); }
+
+  .val-empty { font-size: 12px; color: var(--muted); font-family: var(--font-mono); text-align: center; padding: 20px 0; line-height: 1.7; }
+
+  .incident-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 13px;
+    border-radius: 7px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: var(--red);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .incident-btn:hover { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.4); }
+
+  .prior-badge {
+    display: inline-flex; gap: 8px; align-items: center;
+    font-size: 10px; font-family: var(--font-mono); color: var(--muted);
+    margin-top: 4px;
+  }
+  .prior-badge span { color: var(--text); }
+
+  .report-count-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 16px; height: 16px;
+    background: var(--red); color: #fff;
+    border-radius: 99px; font-size: 9px; font-family: var(--font-mono); font-weight: 700;
+    padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .report-count-badge.visible { opacity: 1; }
+
+  .prior-history {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .prior-history-title { font-size: 10px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .prior-event {
+    font-size: 11px; font-family: var(--font-mono); color: var(--text);
+    padding: 4px 0; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  .prior-event .pe-time { color: var(--muted); font-size: 10px; }
+
+  .leaflet-container { background: var(--bg3) !important; }
+  .leaflet-tile { filter: brightness(0.55) saturate(0.4) hue-rotate(180deg); }
+  .leaflet-control-attribution { display: none !important; }
+  .risk-marker {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    border: 2px solid;
+    cursor: pointer;
+  }
+
+  .loading-overlay {
+    position: absolute; inset: 0;
+    background: var(--bg3);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    z-index: 10;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚠</div>
+      <div class="logo-text">
+        <h1>PotholeRisk</h1>
+        <p>Bengaluru · Dynamic Bayesian Engine</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="api-status">
+        <span class="dot"></span>
+        <span id="api-status-text">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- WEATHER STRIP -->
+  <div id="weather-strip">
+    <div>
+      <div class="w-city" id="w-city">—</div>
+      <div class="w-meta" id="w-condition">—</div>
+    </div>
+    <div class="w-items">
+      <div class="w-item">
+        <div class="val w-rain" id="w-rain">—</div>
+        <div class="lbl">Rain mm/hr</div>
+      </div>
+      <div class="w-item">
+        <div class="val w-temp" id="w-temp">—</div>
+        <div class="lbl">Temp °C</div>
+      </div>
+      <div class="w-item">
+        <div class="val w-wind" id="w-wind">—</div>
+        <div class="lbl">Wind km/h</div>
+      </div>
+      <div class="w-item">
+        <div class="val w-humid" id="w-humid">—</div>
+        <div class="lbl">Humidity %</div>
+      </div>
+    </div>
+    <button class="btn secondary" onclick="refreshWeather()" style="font-size:12px;padding:7px 14px;">↺ Refresh</button>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">Segments tracked</div>
+      <div class="value" id="stat-segs" style="color:var(--accent2)">6</div>
+      <div class="sub">Road segments</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">High risk zones</div>
+      <div class="value" id="stat-high" style="color:var(--red)">0</div>
+      <div class="sub">Segments flagged</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total potholes</div>
+      <div class="value" id="stat-potholes" style="color:var(--amber)">0</div>
+      <div class="sub">GPS-mapped</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg posterior risk</div>
+      <div class="value" id="stat-avg" style="color:var(--green)">—</div>
+      <div class="sub">Bayesian estimate</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT: Segments + Controls -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Segments Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Road Segments</span>
+          <button class="btn secondary" style="font-size:11px;padding:5px 12px;" onclick="toggleAddForm()">+ Add Segment</button>
+        </div>
+        <div class="panel-body" style="padding:12px;">
+          <table class="seg-table">
+            <thead>
+              <tr>
+                <th>Segment</th>
+                <th>Potholes</th>
+                <th>Traffic λ</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody id="seg-tbody"></tbody>
+          </table>
+
+          <!-- Add Segment Form -->
+          <div class="add-seg-form" id="add-seg-form" style="display:none;">
+            <div class="form-field full">
+              <label class="form-label">Segment name</label>
+              <input class="form-input" id="f-name" placeholder="e.g. Koramangala 5th Block">
+            </div>
+            <div class="form-field">
+              <label class="form-label">Latitude</label>
+              <input class="form-input" id="f-lat" placeholder="12.9716" type="number" step="0.0001">
+            </div>
+            <div class="form-field">
+              <label class="form-label">Longitude</label>
+              <input class="form-input" id="f-lng" placeholder="77.5946" type="number" step="0.0001">
+            </div>
+            <div class="form-field">
+              <label class="form-label">Pothole count</label>
+              <input class="form-input" id="f-potholes" placeholder="8" type="number" min="0" max="50">
+            </div>
+            <div class="form-field">
+              <label class="form-label">Traffic λ (veh/hr)</label>
+              <input class="form-input" id="f-traffic" placeholder="200" type="number" min="10" max="1000">
+            </div>
+            <div class="form-field full">
+              <button class="btn" onclick="addSegment()" style="width:100%;">Add Segment</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Overrides -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Manual Overrides</span>
+          <span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Live variables</span>
+        </div>
+        <div class="panel-body">
+          <div class="sliders-grid">
+
+            <div class="slider-block">
+              <div class="slider-top">
+                <span class="slider-lbl">Rain intensity</span>
+                <span class="slider-num" id="sn-rain" style="color:var(--accent2)">0 mm/hr</span>
+              </div>
+              <input type="range" min="0" max="100" value="0" id="sl-rain" oninput="onSlide()">
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-top">
+                <span class="slider-lbl">Traffic flow (λ)</span>
+                <span class="slider-num" id="sn-traffic" style="color:var(--amber)">200 v/hr</span>
+              </div>
+              <input type="range" min="10" max="600" value="200" id="sl-traffic" oninput="onSlide()">
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-top">
+                <span class="slider-lbl">Road wetness</span>
+                <span class="slider-num" id="sn-wet" style="color:var(--accent)">0%</span>
+              </div>
+              <input type="range" min="0" max="100" value="0" id="sl-wet" oninput="onSlide()">
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-top">
+                <span class="slider-lbl">Visibility factor</span>
+                <span class="slider-num" id="sn-vis" style="color:var(--green)">100%</span>
+              </div>
+              <input type="range" min="10" max="100" value="100" id="sl-vis" oninput="onSlide()">
+            </div>
+
+          </div>
+
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px;">
+            <div class="slider-lbl">Time of Day</div>
+            <div class="tod-toggle">
+              <div class="tod-btn active" id="tod-dawn"  onclick="setTod('dawn')">Dawn</div>
+              <div class="tod-btn"        id="tod-day"   onclick="setTod('day')">Day</div>
+              <div class="tod-btn"        id="tod-dusk"  onclick="setTod('dusk')">Dusk</div>
+              <div class="tod-btn"        id="tod-night" onclick="setTod('night')">Night</div>
+            </div>
+          </div>
+
+          <div class="formula-strip">
+            <div class="eq">P(A|E) ∝ P(E|A) × P(A) × λ_exposure</div>
+            <div class="desc">Posterior accident probability = likelihood of evidence given accident × prior × Poisson exposure weight. Rain, wetness, and visibility modulate the likelihood term.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Risk display + charts -->
+    <div class="right-col">
+
+      <!-- Selected segment risk -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Risk Assessment</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="incident-btn" id="report-incident-btn" onclick="reportIncident()" title="Report a new accident — updates Beta prior via conjugate update">
+              ⚠ Report Incident
+              <span class="report-count-badge" id="report-badge">0</span>
+            </button>
+            <span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)" id="last-updated">—</span>
+          </div>
+        </div>
+        <div class="risk-hero" id="risk-hero">
+          <div class="risk-segment-name" id="hero-seg-name">Select a segment →</div>
+          <div class="risk-level-big" id="hero-level" style="color:var(--muted)">—</div>
+          <div class="risk-score-big" id="hero-score">Posterior: —</div>
+        </div>
+        <div class="panel-body" style="padding-top:0;">
+          <div class="bayes-rows">
+            <div class="bayes-row">
+              <div class="bayes-meta">
+                <span class="bayes-name">Prior P(A) — pothole density</span>
+                <span class="bayes-val" id="bv-prior" style="color:var(--accent2)">—</span>
+              </div>
+              <div class="bar-bg"><div class="bar-fg" id="bb-prior" style="width:0%;background:var(--accent2)"></div></div>
+            </div>
+            <div class="bayes-row">
+              <div class="bayes-meta">
+                <span class="bayes-name">Rain likelihood multiplier</span>
+                <span class="bayes-val" id="bv-rain" style="color:var(--accent)">—</span>
+              </div>
+              <div class="bar-bg"><div class="bar-fg" id="bb-rain" style="width:0%;background:var(--accent)"></div></div>
+            </div>
+            <div class="bayes-row">
+              <div class="bayes-meta">
+                <span class="bayes-name">Wetness × Visibility modifier</span>
+                <span class="bayes-val" id="bv-wv" style="color:#a78bfa">—</span>
+              </div>
+              <div class="bar-bg"><div class="bar-fg" id="bb-wv" style="width:0%;background:#a78bfa"></div></div>
+            </div>
+            <div class="bayes-row">
+              <div class="bayes-meta">
+                <span class="bayes-name">Poisson exposure E[k; λ]</span>
+                <span class="bayes-val" id="bv-exp" style="color:var(--amber)">—</span>
+              </div>
+              <div class="bar-bg"><div class="bar-fg" id="bb-exp" style="width:0%;background:var(--amber)"></div></div>
+            </div>
+            <div class="bayes-row">
+              <div class="bayes-meta">
+                <span class="bayes-name">ToD factor</span>
+                <span class="bayes-val" id="bv-tod" style="color:var(--green)">—</span>
+              </div>
+              <div class="bar-bg"><div class="bar-fg" id="bb-tod" style="width:0%;background:var(--green)"></div></div>
+            </div>
+            <div class="bayes-row" style="padding-top:8px;border-top:1px solid var(--border);">
+              <div class="bayes-meta">
+                <span class="bayes-name" style="font-weight:500;color:var(--text)">Posterior risk score</span>
+                <span class="bayes-val" id="bv-post" style="color:var(--accent);font-size:16px;">—</span>
+              </div>
+              <div class="bar-bg" style="height:8px;border-radius:4px;"><div class="bar-fg" id="bb-post" style="width:0%;background:var(--accent);height:8px;border-radius:4px;"></div></div>
+            </div>
+          </div>
+
+          <!-- Enhancement #5: Beta prior learning display -->
+          <div id="prior-learning-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;">Beta Prior — Conjugate Updates</div>
+              <div class="prior-badge">
+                α=<span id="beta-alpha">—</span> β=<span id="beta-beta">—</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div style="flex:1;">
+                <div style="font-size:10px;font-family:var(--font-mono);color:var(--muted);margin-bottom:4px;">Mean = α/(α+β)</div>
+                <div class="bar-bg" style="height:6px;border-radius:3px;"><div class="bar-fg" id="beta-mean-bar" style="width:0%;background:#a78bfa;height:6px;border-radius:3px;transition:width 0.6s cubic-bezier(.4,0,.2,1);"></div></div>
+              </div>
+              <div style="font-size:14px;font-weight:700;font-family:var(--font-display);color:#a78bfa;min-width:44px;text-align:right;" id="beta-mean-val">—</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:8px;" id="beta-reports-summary">No incidents reported for this segment yet.</div>
+            <div id="prior-history-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Segment Map</span>
+          <span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Bengaluru</span>
+        </div>
+        <div class="panel-body" style="padding:12px;">
+          <div class="map-wrap">
+            <div id="map-loading" class="loading-overlay"><div class="spinner"></div></div>
+            <div id="risk-map"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History + Log -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Risk History</span></div>
+          <div class="panel-body">
+            <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Event Log</span></div>
+          <div class="panel-body" style="padding:12px 16px;">
+            <div class="log-wrap" id="event-log"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enhancement #2: Accident History Validation -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Accident History Validation</span>
+          <span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Enhancement #2 — Karnataka records</span>
+        </div>
+        <div class="panel-body">
+          <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px;">
+            Upload a CSV of historical Karnataka accident records. Required columns: <code style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">segment_name</code> or <code style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">lat,lng</code> and <code style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">accident (0/1)</code>. The app cross-references HIGH-risk model predictions against recorded accidents.
+          </p>
+          <div class="file-drop" id="val-drop">
+            <input type="file" accept=".csv" onchange="handleAccidentCSV(event)">
+            <div class="fd-icon">📋</div>
+            <div class="fd-label"><strong>Click or drop</strong> accident CSV here</div>
+            <div class="fd-label" style="margin-top:4px;">segment_name, lat, lng, accident (0/1)</div>
+          </div>
+          <div id="val-results">
+            <div class="val-empty">No accident data loaded. Upload a CSV to see precision, recall, and confusion matrix.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal for no-API demo -->
+<!-- Modal removed: API key is handled server-side -->
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+// 👇 Pre‑loaded API key – will connect automatically.
+// API key lives in .env on the server — never sent to the browser
+let weatherData = null;
+let selectedSegId = null;
+let tod = 'dawn';
+let map = null;
+let mapMarkers = {};
+let historyChart = null;
+let historyData = [];
+
+const todFactors = { dawn: 1.25, day: 1.0, dusk: 1.3, night: 1.6 };
+
+let betaPriors = {};
+function initBetaPrior(seg) {
+  if (!betaPriors[seg.id]) {
+    const alpha = 1 + seg.potholes * 0.1;
+    const beta  = 10 - seg.potholes * 0.05;
+    betaPriors[seg.id] = { alpha: Math.max(alpha, 0.5), beta: Math.max(beta, 1), reports: [] };
+  }
+}
+
+let accidentRecords = [];
+
+let segments = [
+  { id: 1, name: 'Silk Board Junction',      lat: 12.9177, lng: 77.6229, potholes: 14, traffic: 420 },
+  { id: 2, name: 'Koramangala 5th Block',    lat: 12.9356, lng: 77.6148, potholes: 9,  traffic: 280 },
+  { id: 3, name: 'Marathahalli Bridge',       lat: 12.9567, lng: 77.7000, potholes: 11, traffic: 390 },
+  { id: 4, name: 'HSR Layout Sector 1',      lat: 12.9116, lng: 77.6473, potholes: 6,  traffic: 200 },
+  { id: 5, name: 'Whitefield Main Road',     lat: 12.9698, lng: 77.7500, potholes: 13, traffic: 350 },
+  { id: 6, name: 'Bannerghatta Road KM-12',  lat: 12.8897, lng: 77.5981, potholes: 7,  traffic: 180 },
+];
+let nextId = 7;
+
+function computeRisk(seg, rain, wet, vis, traffic_override) {
+  const λ = traffic_override !== undefined ? traffic_override : seg.traffic;
+  const rain_mm  = rain;
+  const wet_pct  = wet;
+  const vis_pct  = vis;
+  const tod_f    = todFactors[tod];
+
+  initBetaPrior(seg);
+  const bp = betaPriors[seg.id];
+  const betaMean = bp.alpha / (bp.alpha + bp.beta);
+  const reportWeight = Math.min(1, bp.reports.length / 10);
+  const basePrior = Math.min(0.45, 0.01 + seg.potholes * 0.009);
+  const prior = basePrior * (1 - reportWeight) + betaMean * reportWeight;
+
+  const rainMult = 1 + (rain_mm / 100) * 3.5;
+  const wetMod = 1 + (wet_pct / 100) * 0.8;
+  const visMod = 1 + ((100 - vis_pct) / 100) * 1.2;
+  const todMod = tod_f;
+
+  const unnorm = prior * rainMult * wetMod * visMod * todMod;
+  const posterior = Math.min(0.97, unnorm);
+
+  const expWeight = Math.min(1, λ / 600);
+  const finalRisk = posterior * (0.4 + 0.6 * expWeight);
+
+  let level;
+  if (finalRisk < 0.15) level = 'LOW';
+  else if (finalRisk < 0.35) level = 'MEDIUM';
+  else level = 'HIGH';
+
+  return { prior, rainMult, wetMod, visMod, todMod, posterior, expWeight, finalRisk, level, λ };
+}
+
+function getCurrentInputs() {
+  return {
+    rain:    +document.getElementById('sl-rain').value,
+    wet:     +document.getElementById('sl-wet').value,
+    vis:     +document.getElementById('sl-vis').value,
+    traffic: +document.getElementById('sl-traffic').value,
+  };
+}
+
+function renderSegments() {
+  const { rain, wet, vis, traffic } = getCurrentInputs();
+  const tbody = document.getElementById('seg-tbody');
+  tbody.innerHTML = '';
+
+  let totalPH = 0, highCount = 0, riskSum = 0;
+
+  segments.forEach(seg => {
+    const r = computeRisk(seg, rain, wet, vis);
+    totalPH += seg.potholes;
+    if (r.level === 'HIGH') highCount++;
+    riskSum += r.finalRisk;
+
+    const tr = document.createElement('tr');
+    tr.className = 'seg-row' + (selectedSegId === seg.id ? ' active' : '');
+    tr.innerHTML = `
+      <td class="seg-name" title="${seg.name}">${seg.name}</td>
+      <td class="seg-potholes">${seg.potholes}</td>
+      <td class="seg-potholes">${seg.traffic}</td>
+      <td><span class="risk-chip risk-${r.level}">${r.level}</span></td>
+    `;
+    tr.onclick = () => selectSegment(seg.id);
+    tbody.appendChild(tr);
+
+    updateMapMarker(seg, r);
+  });
+
+  document.getElementById('stat-segs').textContent     = segments.length;
+  document.getElementById('stat-high').textContent     = highCount;
+  document.getElementById('stat-potholes').textContent = totalPH;
+  document.getElementById('stat-avg').textContent      = (riskSum / segments.length).toFixed(3);
+
+  if (selectedSegId) renderHero();
+  updateStats();
+}
+
+function selectSegment(id) {
+  selectedSegId = id;
+  renderSegments();
+  renderHero();
+  log(`Selected: ${segments.find(s=>s.id===id)?.name}`, 'low');
+}
+
+function renderHero() {
+  if (!selectedSegId) return;
+  const seg = segments.find(s => s.id === selectedSegId);
+  if (!seg) return;
+
+  const { rain, wet, vis } = getCurrentInputs();
+  const r = computeRisk(seg, rain, wet, vis);
+
+  const colors = { LOW: 'var(--green)', MEDIUM: 'var(--amber)', HIGH: 'var(--red)' };
+  const rgbas  = { LOW: 'rgba(34,197,94,0.1)', MEDIUM: 'rgba(234,179,8,0.1)', HIGH: 'rgba(239,68,68,0.12)' };
+
+  const hero = document.getElementById('risk-hero');
+  hero.style.setProperty('--risk-color', rgbas[r.level]);
+
+  document.getElementById('hero-seg-name').textContent = seg.name;
+  document.getElementById('hero-level').textContent = r.level;
+  document.getElementById('hero-level').style.color = colors[r.level];
+  document.getElementById('hero-score').textContent = `Posterior: ${r.finalRisk.toFixed(4)}`;
+
+  setBar('prior', r.prior * 100,          r.prior.toFixed(4));
+  setBar('rain',  ((r.rainMult-1)/3.5)*100, r.rainMult.toFixed(2)+'×');
+  setBar('wv',    ((r.wetMod-1+((100-+document.getElementById('sl-vis').value)/100)*1.2)/2)*100, `w${document.getElementById('sl-wet').value}% v${document.getElementById('sl-vis').value}%`);
+  setBar('exp',   r.expWeight * 100,       `λ=${r.λ}`);
+  setBar('tod',   ((r.todMod-1)/0.6)*100,  r.todMod.toFixed(2)+'×');
+  setBar('post',  r.finalRisk * 100,       r.finalRisk.toFixed(4));
+
+  document.getElementById('last-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+  updateBetaDisplay(seg);
+
+  historyData.push({ time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), score: r.finalRisk, level: r.level });
+  if (historyData.length > 20) historyData.shift();
+  renderHistoryChart();
+
+  if (r.level === 'HIGH') log(`HIGH RISK at ${seg.name}: ${r.finalRisk.toFixed(3)}`, 'high');
+}
+
+function setBar(key, pct, val) {
+  const p = Math.min(100, Math.max(0, pct));
+  document.getElementById('bb-'+key).style.width = p + '%';
+  document.getElementById('bv-'+key).textContent = val;
+}
+
+function reportIncident() {
+  if (!selectedSegId) { alert('Select a segment first.'); return; }
+  const seg = segments.find(s => s.id === selectedSegId);
+  if (!seg) return;
+
+  initBetaPrior(seg);
+  const bp = betaPriors[seg.id];
+  bp.alpha += 1;
+  const time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  bp.reports.push({ time, note: `Incident #${bp.reports.length + 1}` });
+
+  log(`Incident reported at ${seg.name} — Beta prior updated: α=${bp.alpha.toFixed(2)}, β=${bp.beta.toFixed(2)}`, 'high');
+  renderHero();
+  renderSegments();
+
+  const badge = document.getElementById('report-badge');
+  badge.textContent = bp.reports.length;
+  badge.classList.add('visible');
+}
+
+function updateBetaDisplay(seg) {
+  if (!seg) return;
+  initBetaPrior(seg);
+  const bp = betaPriors[seg.id];
+  const mean = bp.alpha / (bp.alpha + bp.beta);
+
+  document.getElementById('beta-alpha').textContent = bp.alpha.toFixed(2);
+  document.getElementById('beta-beta').textContent  = bp.beta.toFixed(2);
+  document.getElementById('beta-mean-val').textContent = mean.toFixed(4);
+  document.getElementById('beta-mean-bar').style.width = (mean * 100) + '%';
+
+  const badge = document.getElementById('report-badge');
+  if (bp.reports.length > 0) {
+    badge.textContent = bp.reports.length;
+    badge.classList.add('visible');
+    document.getElementById('beta-reports-summary').textContent =
+      `${bp.reports.length} incident${bp.reports.length > 1 ? 's' : ''} reported. Beta mean prior = ${mean.toFixed(4)}. Each report shifts α upward via conjugate updating.`;
+  } else {
+    badge.classList.remove('visible');
+    document.getElementById('beta-reports-summary').textContent =
+      'No incidents reported for this segment yet. Click "Report Incident" to update the Beta prior.';
+  }
+
+  const wrap = document.getElementById('prior-history-wrap');
+  if (bp.reports.length > 0) {
+    wrap.innerHTML = `<div class="prior-history">
+      <div class="prior-history-title">Report Log</div>
+      ${bp.reports.slice().reverse().slice(0,5).map(r => `
+        <div class="prior-event">
+          <span>${r.note}</span>
+          <span class="pe-time">${r.time}</span>
+        </div>`).join('')}
+    </div>`;
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+function handleAccidentCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    parseAndValidate(text);
+  };
+  reader.readAsText(file);
+}
+
+function parseAndValidate(csvText) {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) { alert('CSV must have a header row and at least one data row.'); return; }
+
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+  const nameIdx = header.indexOf('segment_name');
+  const latIdx  = header.indexOf('lat');
+  const lngIdx  = header.indexOf('lng');
+  const accIdx  = header.findIndex(h => h === 'accident' || h === 'accident_occurred' || h === 'is_accident');
+
+  if (accIdx === -1) { alert('CSV must have an "accident" column (0 or 1).'); return; }
+  if (nameIdx === -1 && (latIdx === -1 || lngIdx === -1)) {
+    alert('CSV must have either "segment_name" OR "lat" and "lng" columns.'); return;
+  }
+
+  accidentRecords = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/"/g,''));
+    if (!cols[accIdx] && cols[accIdx] !== '0') continue;
+    const rec = {
+      segmentName: nameIdx !== -1 ? cols[nameIdx] : null,
+      lat:  latIdx !== -1 ? parseFloat(cols[latIdx]) : null,
+      lng:  lngIdx !== -1 ? parseFloat(cols[lngIdx]) : null,
+      accident: parseInt(cols[accIdx]) === 1 ? 1 : 0,
+    };
+    accidentRecords.push(rec);
+  }
+
+  log(`Loaded ${accidentRecords.length} accident records from CSV.`, 'low');
+  runValidation();
+}
+
+function matchRecordToSegment(rec) {
+  if (rec.segmentName) {
+    const name = rec.segmentName.toLowerCase();
+    const match = segments.find(s => s.name.toLowerCase().includes(name) || name.includes(s.name.toLowerCase()));
+    if (match) return match;
+  }
+  if (rec.lat && rec.lng) {
+    let closest = null, minDist = Infinity;
+    segments.forEach(s => {
+      const d = Math.hypot(s.lat - rec.lat, s.lng - rec.lng);
+      if (d < minDist) { minDist = d; closest = s; }
+    });
+    if (minDist < 0.008) return closest;
+  }
+  return null;
+}
+
+function runValidation() {
+  const { rain, wet, vis } = getCurrentInputs();
+  const segRisk = {};
+  segments.forEach(s => {
+    const r = computeRisk(s, rain, wet, vis);
+    segRisk[s.id] = r.level;
+  });
+
+  let tp = 0, fp = 0, fn = 0, tn = 0, unmatched = 0;
+
+  accidentRecords.forEach(rec => {
+    const seg = matchRecordToSegment(rec);
+    if (!seg) { unmatched++; return; }
+    const predicted_high = segRisk[seg.id] === 'HIGH' ? 1 : 0;
+    const actual = rec.accident;
+    if (predicted_high === 1 && actual === 1) tp++;
+    else if (predicted_high === 1 && actual === 0) fp++;
+    else if (predicted_high === 0 && actual === 1) fn++;
+    else tn++;
+  });
+
+  const total = tp + fp + fn + tn;
+  const precision = (tp + fp) > 0 ? tp / (tp + fp) : 0;
+  const recall    = (tp + fn) > 0 ? tp / (tp + fn) : 0;
+  const f1        = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+  const accuracy  = total > 0 ? (tp + tn) / total : 0;
+
+  log(`Validation: Precision=${(precision*100).toFixed(1)}%, Recall=${(recall*100).toFixed(1)}%, F1=${(f1*100).toFixed(1)}%`, recall > 0.6 ? 'low' : 'med');
+
+  renderValidationResults({ tp, fp, fn, tn, total, precision, recall, f1, accuracy, unmatched });
+}
+
+function renderValidationResults({ tp, fp, fn, tn, total, precision, recall, f1, accuracy, unmatched }) {
+  const el = document.getElementById('val-results');
+  el.innerHTML = `
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">
+        ${total} records matched · ${unmatched} unmatched · Cross-referencing HIGH predictions vs recorded accidents
+      </div>
+
+      <div class="confusion-matrix">
+        <div class="cm-header"></div>
+        <div class="cm-header">Predicted HIGH</div>
+        <div class="cm-header">Predicted LOW/MED</div>
+
+        <div class="cm-row-label">Actual Accident</div>
+        <div class="cm-cell cm-tp">
+          <div class="cm-val">${tp}</div>
+          <div class="cm-lbl">True Positive</div>
+        </div>
+        <div class="cm-cell cm-fn">
+          <div class="cm-val">${fn}</div>
+          <div class="cm-lbl">False Negative</div>
+        </div>
+
+        <div class="cm-row-label">No Accident</div>
+        <div class="cm-cell cm-fp">
+          <div class="cm-val">${fp}</div>
+          <div class="cm-lbl">False Positive</div>
+        </div>
+        <div class="cm-cell cm-tn">
+          <div class="cm-val">${tn}</div>
+          <div class="cm-lbl">True Negative</div>
+        </div>
+      </div>
+
+      <div class="metric-pills">
+        <div class="metric-pill prec">
+          <div class="mp-val">${(precision*100).toFixed(1)}%</div>
+          <div class="mp-lbl">Precision</div>
+        </div>
+        <div class="metric-pill rec">
+          <div class="mp-val">${(recall*100).toFixed(1)}%</div>
+          <div class="mp-lbl">Recall</div>
+        </div>
+        <div class="metric-pill f1">
+          <div class="mp-val">${(f1*100).toFixed(1)}%</div>
+          <div class="mp-lbl">F1 Score</div>
+        </div>
+        <div class="metric-pill acc">
+          <div class="mp-val">${(accuracy*100).toFixed(1)}%</div>
+          <div class="mp-lbl">Accuracy</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;font-size:11px;color:var(--muted);font-family:var(--font-mono);line-height:1.7;">
+        ${recall < 0.5 ? '⚠ Low recall: model is missing many real accidents. Consider lowering the HIGH threshold or uploading more segment data.' :
+          precision < 0.5 ? '⚠ Low precision: many HIGH predictions are false alarms. Consider tightening weather thresholds.' :
+          '✓ Model performance looks reasonable for current conditions. Re-run after changing sliders to see how conditions affect metrics.'}
+      </div>
+
+      <button class="btn secondary" style="margin-top:12px;font-size:11px;padding:7px 14px;" onclick="runValidation()">↺ Re-run with current conditions</button>
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const drop = document.getElementById('val-drop');
+  if (drop) {
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+    drop.addEventListener('drop', e => {
+      e.preventDefault(); drop.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => parseAndValidate(ev.target.result);
+        reader.readAsText(file);
+      }
+    });
+  }
+});
+
+function updateStats() {}
+
+function initMap() {
+  map = L.map('risk-map', { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+  document.getElementById('map-loading').style.display = 'none';
+  renderSegments();
+}
+
+function updateMapMarker(seg, risk) {
+  const colors = { LOW: '#22c55e', MEDIUM: '#eab308', HIGH: '#ef4444' };
+  const col = colors[risk.level];
+  const size = 10 + seg.potholes * 1.2;
+
+  if (mapMarkers[seg.id]) {
+    map.removeLayer(mapMarkers[seg.id]);
+  }
+
+  const icon = L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;background:${col}22;border:2px solid ${col};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:${col};font-family:monospace;${risk.level==='HIGH'?'box-shadow:0 0 8px '+col+';':''}">${seg.potholes}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    className: ''
+  });
+
+  const m = L.marker([seg.lat, seg.lng], { icon })
+    .addTo(map)
+    .bindPopup(`<b style="font-family:monospace;font-size:12px">${seg.name}</b><br>Risk: <b style="color:${col}">${risk.level}</b> (${risk.finalRisk.toFixed(3)})<br>Potholes: ${seg.potholes} | λ: ${seg.traffic} veh/hr`);
+  m.on('click', () => selectSegment(seg.id));
+  mapMarkers[seg.id] = m;
+}
+
+function renderHistoryChart() {
+  const labels = historyData.map(d => d.time);
+  const data   = historyData.map(d => d.score);
+  const bgs    = historyData.map(d => d.level === 'HIGH' ? 'rgba(239,68,68,0.7)' : d.level === 'MEDIUM' ? 'rgba(234,179,8,0.7)' : 'rgba(34,197,94,0.7)');
+
+  if (historyChart) { historyChart.destroy(); }
+  const ctx = document.getElementById('history-chart').getContext('2d');
+  historyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: bgs,
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a7f8e', font: { family: 'DM Mono', size: 9 } } },
+        y: { min: 0, max: 1, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a7f8e', font: { family: 'DM Mono', size: 9 }, stepSize: 0.25 } }
+      }
+    }
+  });
+}
+
+async function refreshWeather() {
+  setStatus('loading', 'Fetching…');
+  try {
+    const res = await fetch('/api/weather?lat=12.9716&lon=77.5946');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    weatherData = d;
+    applyWeatherData(d);
+    setStatus('live', 'Live · Bengaluru');
+    log(`Weather updated: ${d.weather[0].description}, ${d.main.temp.toFixed(1)}°C`, 'low');
+  } catch(e) {
+    setStatus('error', 'Weather fetch failed');
+    log('Weather error: ' + e.message, 'high');
+  }
+}
+
+function applyWeatherData(d) {
+  const rain1h = d.rain?.['1h'] || 0;
+  const temp   = d.main.temp;
+  const wind   = (d.wind.speed * 3.6).toFixed(1);
+  const humid  = d.main.humidity;
+  const cond   = d.weather[0].description;
+
+  document.getElementById('w-city').textContent     = d.name || 'Bengaluru';
+  document.getElementById('w-condition').textContent = cond;
+  document.getElementById('w-rain').textContent     = rain1h.toFixed(1);
+  document.getElementById('w-temp').textContent     = temp.toFixed(1);
+  document.getElementById('w-wind').textContent     = wind;
+  document.getElementById('w-humid').textContent    = humid;
+
+  document.getElementById('weather-strip').classList.add('visible');
+
+  const rainSlider = document.getElementById('sl-rain');
+  const cappedRain = Math.min(100, rain1h * 4);
+  rainSlider.value = cappedRain;
+  document.getElementById('sn-rain').textContent = rain1h.toFixed(1) + ' mm/hr';
+
+  const wetSlider = document.getElementById('sl-wet');
+  wetSlider.value = humid;
+  document.getElementById('sn-wet').textContent = humid + '%';
+
+  renderSegments();
+}
+
+function setStatus(type, msg) {
+  const pill = document.getElementById('api-status');
+  const txt  = document.getElementById('api-status-text');
+  pill.className = 'status-pill ' + (type === 'live' ? 'live' : type === 'error' ? 'error' : '');
+  txt.textContent = msg;
+}
+
+function onSlide() {
+  const rain = +document.getElementById('sl-rain').value;
+  const wet  = +document.getElementById('sl-wet').value;
+  const vis  = +document.getElementById('sl-vis').value;
+  const tf   = +document.getElementById('sl-traffic').value;
+  document.getElementById('sn-rain').textContent    = rain + ' mm/hr';
+  document.getElementById('sn-wet').textContent     = wet + '%';
+  document.getElementById('sn-vis').textContent     = vis + '%';
+  document.getElementById('sn-traffic').textContent = tf + ' v/hr';
+  renderSegments();
+}
+
+function setTod(t) {
+  tod = t;
+  ['dawn','day','dusk','night'].forEach(x => {
+    document.getElementById('tod-'+x).classList.toggle('active', x === t);
+  });
+  renderSegments();
+  log(`Time of day set to ${t.toUpperCase()} (×${todFactors[t]})`, 'low');
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('add-seg-form');
+  f.style.display = f.style.display === 'none' ? 'grid' : 'none';
+}
+
+function addSegment() {
+  const name     = document.getElementById('f-name').value.trim();
+  const lat      = parseFloat(document.getElementById('f-lat').value);
+  const lng      = parseFloat(document.getElementById('f-lng').value);
+  const potholes = parseInt(document.getElementById('f-potholes').value) || 5;
+  const traffic  = parseInt(document.getElementById('f-traffic').value) || 200;
+
+  if (!name || isNaN(lat) || isNaN(lng)) {
+    alert('Please fill in name, latitude, and longitude.'); return;
+  }
+
+  segments.push({ id: nextId++, name, lat, lng, potholes, traffic });
+  toggleAddForm();
+  ['f-name','f-lat','f-lng','f-potholes','f-traffic'].forEach(id => document.getElementById(id).value = '');
+  renderSegments();
+  log(`Added segment: ${name}`, 'low');
+}
+
+function log(msg, type = 'low') {
+  const el = document.getElementById('event-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const t = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  entry.innerHTML = `<span class="log-time">${t}</span><span class="log-msg log-${type}">${msg}</span>`;
+  el.prepend(entry);
+  while (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+
+window.addEventListener('load', () => {
+  refreshWeather();
+  initMap();
+  setTod('dawn');
+  segments.forEach(s => initBetaPrior(s));
+  selectSegment(1);
+  log('PotholeRisk engine initialised. Bengaluru segments loaded.', 'low');
+  log('Bayesian model ready. Fetching live weather data…', 'low');
+
+  setInterval(() => refreshWeather(), 600000);
+});
+</script>
+</body>
+</html>

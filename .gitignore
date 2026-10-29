@@ -1,0 +1,4 @@
+node_modules/
+.env
+# Large datasets
+dataset/accident/Copy of AccidentReports.csv
